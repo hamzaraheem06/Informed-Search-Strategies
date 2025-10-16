@@ -6,8 +6,9 @@ from heuristics import manhattan, euclidean, non_admissible
 
 def main():
     # Set up the grid environment (same as main.py for consistency)
-    goals = [(13, 10), (14, 19), (24, 30), (21, 33), (0, 32)]
-    grid_env = CityGrid(width=35, height=25, seed=42, obstacle_density=0.85, goals=goals)
+    goals = [(39, 50), (27, 53), (24, 30), (21, 33), (0, 32)]
+
+    grid_env = CityGrid(width=55, height=40, seed=69, obstacle_density= 0.85, goals=goals)
     start = grid_env.start
     # Choose a single goal for analysis (using the second goal for consistency)
     goal = goals[1]  # (14, 19)

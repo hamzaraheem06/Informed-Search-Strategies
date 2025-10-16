@@ -4,9 +4,9 @@ from heuristics import manhattan
 
 def main():
     # Create grid
-    goals = [(13, 10), (14, 19), (24, 30), (21, 33), (0, 32)]
+    goals = [(39, 50), (27, 53), (24, 30), (21, 33), (0, 32)]
 
-    grid_env = CityGrid(width=35, height=25, seed=42, obstacle_density= 0.85, goals=goals)
+    grid_env = CityGrid(width=55, height=40, seed=69, obstacle_density= 0.85, goals=goals)
     start = grid_env.start
     goal = grid_env.goals[1]
 

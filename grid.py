@@ -11,24 +11,48 @@ from collections import deque
 #   - Movement costs (diagonals slightly higher)
 
 class CityGrid:
-    def __init__(self, width, height, obstacle_density=.70, seed=None, goals=None):
+    def __init__(self, width=None, height=None, obstacle_density=.70, seed=None, goals=None, external_grid=None):
         """
         Initialize the city grid environment.
 
-        :param width: number of columns in the grid
-        :param height: number of rows in the grid
+        :param width: number of columns in the grid (required unless external_grid provided)
+        :param height: number of rows in the grid (required unless external_grid provided)
         :param obstacle_density: approximate proportion of obstacle cells
         :param seed: random seed for reproducibility
         :param goals: initialize grid with goals at initial stage.
+        :param external_grid: optional pre-built grid (list of lists); if provided, skips random generation and uses its dimensions.
         """
+        import random
+        self.random = random.Random(seed) if seed is not None else random.Random()
+
+        if external_grid is not None:
+            # Use provided external grid
+            self.height = len(external_grid)
+            self.width = len(external_grid[0]) if self.height > 0 else 0
+            self.grid = [row[:] for row in external_grid]  # Deep copy
+            total_cells = self.height * self.width
+            self.obstacle_density = sum(
+                sum(1 for cell in row if cell == 1) for row in self.grid) / total_cells if total_cells > 0 else 0
+            self.start = (0, 0)
+            self.goals = goals if goals else [(self.height - 1, self.width - 1)]
+            # Ensure start and goals are free
+            if self.is_valid(*self.start):
+                self.grid[self.start[0]][self.start[1]] = 0
+            for gy, gx in self.goals:
+                if self.is_valid(gy, gx):
+                    self.grid[gy][gx] = 0
+            return  # Skip random generation
+
+        # Original random generation path (require width/height)
+        if width is None or height is None:
+            raise ValueError("width and height must be provided when external_grid is not specified.")
+
         self.width = width
         self.height = height
         self.grid = [[0 for _ in range(width)] for _ in range(height)]
-        self.random = random.Random(seed)
-
+        self.obstacle_density = obstacle_density
         self.start = (0, 0)
         self.goals = goals if goals else [(height - 1, width - 1)]  # default: bottom-right goal
-
         self.generate_obstacles(obstacle_density)
 
     # Why choose 4-connected instead of 8-connected?
@@ -88,7 +112,7 @@ class CityGrid:
                     # Structured city pattern: main roads every few cells
                     if (y % road_spacing == 0 or x % road_spacing == 0) and not (y == 0 and x == 0):
                         # Roads are mostly open with a bit of randomness
-                        self.grid[y][x] = 0 if self.random.random() > 0.15 else 1
+                        self.grid[y][x] = 0 if self.random.random() > (1 - self.obstacle_density) else 1
                     else:
                         # Inner blocks get obstacles based on density
                         if self.random.random() < density:
@@ -238,3 +262,49 @@ class CityGrid:
                     visited.add((ny, nx))
                     queue.append((ny, nx))
         return False
+
+    def display_path_cropped(self, path, alg_name, margin=10):
+        """
+        Displays a cropped section of the grid around the path for better readability.
+        :param path: list of (y, x) tuples
+        :param alg_name: name of the algorithm (for title)
+        :param margin: cells to expand around path bounds
+        """
+        if not path:
+            print("No path to display.")
+            return
+
+        ys = [p[0] for p in path]
+        xs = [p[1] for p in path]
+        min_y, max_y = min(ys), max(ys)
+        min_x, max_x = min(xs), max(xs)
+
+        # Crop bounds with margin
+        min_y = max(0, min_y - margin)
+        max_y = min(self.height - 1, max_y + margin)
+        min_x = max(0, min_x - margin)
+        max_x = min(self.width - 1, max_x + margin)
+
+        path_set = set(path)
+        start = self.start
+        goal = self.goals[0] if self.goals else None
+
+        print(f"Cropped {alg_name} Path Display (rows {min_y}-{max_y}, cols {min_x}-{max_x}):")
+        print("Legend: S=start, G=goal, o=path, █=obstacle/building, .=road")
+        print("-" * ((max_x - min_x + 1) * 2))
+
+        for y in range(min_y, max_y + 1):
+            for x in range(min_x, max_x + 1):
+                if (y, x) == start:
+                    print("S", end=" ")
+                elif goal and (y, x) == goal:
+                    print("G", end=" ")
+                elif (y, x) in path_set:
+                    print("o", end=" ")
+                elif self.grid[y][x] == 1:
+                    print("█", end=" ")
+                else:
+                    print(".", end=" ")
+            print()
+        print("-" * ((max_x - min_x + 1) * 2))
+        print()
