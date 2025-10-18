@@ -29,15 +29,11 @@ Key focus: Balancing speed, optimality, and adaptability in static/dynamic grids
    cd Informed-Search-Strategies
    ```
 
-2. Install dependencies (optional, as most are standard):
-
-   ```
-   pip install numpy matplotlib
-   ```
+2. Install dependencies
 
 3. Run the project:
    ```
-   python main.py
+   python main_interface.py
    ```
 
 ## Usage
@@ -50,19 +46,15 @@ Key focus: Balancing speed, optimality, and adaptability in static/dynamic grids
 - `visualize.py`: Basic visualization.
 - `visualize_enhanced.py`: Advanced plotting.
 - `main.py`: Experimental runner with plots.
+- `main_interface.py`: main interface of application.
 
 ### Running Experiments
 
 Execute `main.py` to generate comparative plots:
 
 ```bash
-python main.py
+python main_interface.py
 ```
-
-This runs algorithms across heuristics and α values, outputting:
-
-- Bar charts: Nodes expanded, path cost, execution time.
-- Console logs: e.g., "WA\* (α=1.5), Manhattan: cost=30, nodes=38, time=0.002 sec"
 
 ## Results Highlights
 
@@ -84,6 +76,7 @@ Informed-Search-Strategies/
 ├── visualize_enhanced.py # Advanced plotting
 ├── main.py              # Experiment runner
 ├── report.pdf           # Assignment report (optional)
+├── main_interface.py    # UI
 └── README.md            # This file
 ```
 
