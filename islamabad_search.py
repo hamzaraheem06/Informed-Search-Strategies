@@ -1,12 +1,8 @@
 import os
 import numpy as np
-import matplotlib.pyplot as plt
 import osmnx as ox
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
-import time
-import math
-import random
 from collections import deque
 import folium  # For interactive maps
 
@@ -182,25 +178,102 @@ def display_interactive_map(G, path, bounds, resolution=0.0003, title="Path on I
 
 
 # ============================
-# Run Algorithm (with debug)
+# Run All Algorithms and Display on Single Map
 # ============================
-def run_algorithm(start_idx, goal_idx, grid, algorithm_name, heuristic):
+def run_all_algorithms_and_map(start_idx, goal_idx, grid, env, G, bounds, resolution, start_input, goal_input):
     """
-    Run the specified algorithm and return results.
+    Runs all algorithms, prints results, and displays all paths on a single interactive map.
+    Suppresses terminal grid prints.
     """
-    sy, sx = start_idx
-    gy, gx = goal_idx
-    h, w = grid.shape
-    print(f"   Start cell ({sy}, {sx}): {grid[sy, sx] if 0 <= sy < h and 0 <= sx < w else 'OOB'}")
-    print(f"   Goal cell ({gy}, {gx}): {grid[gy, gx] if 0 <= gy < h and 0 <= gx < w else 'OOB'}")
-    if algorithm_name == "Bi-A*":
-        path, cost, expanded = bidirectional_a_star(start_idx, goal_idx, grid, heuristic)
-    # elif algorithm_name == "GBFS":
-    #     path, expanded, _ = greedy_best_first_search(start_idx, goal_idx, grid, heuristic)
-    #     cost = len(path) - 1 if path else float('inf')
-    else:
-        raise ValueError(f"Unknown algorithm: {algorithm_name}")
-    return path, cost, expanded
+    # List of algorithms: (name, func, heuristic, extra_args)
+    def zero_heuristic(a, b):
+        return 0
+
+    algorithms = [
+        ("A*", a_star, euclidean, {}),
+        ("GBFS", greedy_best_first_search, euclidean, {}),
+        ("Bi-A*", bidirectional_a_star, manhattan, {}),
+        ("Weighted A* (α=2)", weighted_a_star, euclidean, {"alpha": 2.0}),
+        ("Dijkstra", dijkstra, zero_heuristic, {})
+    ]
+
+    results = {}  # {name: (path, cost, expanded)}
+    colors = ['red', 'blue', 'green', 'orange', 'purple']
+
+    print("\n🔍 Running all algorithms...")
+    for i, (name, func, h, extra) in enumerate(algorithms):
+        print(f"   {name}...")
+        if name == "GBFS":
+            path, expanded, _ = func(start_idx, goal_idx, grid, h)
+            cost = len(path) - 1 if path else float('inf')
+        else:
+            path, cost, expanded = func(start_idx, goal_idx, grid, h, **extra)
+        results[name] = (path, cost, expanded)
+        if path:
+            print(f"     ✅ {name}: Length={len(path) - 1}, Cost≈{cost:.2f}, Expanded={expanded}")
+        else:
+            print(f"     ❌ {name}: No path")
+
+    # Create single interactive map with all paths
+    print("\n🗺️ Generating combined interactive map...")
+    all_paths = [r[0] for r in results.values() if r[0]]
+    if not all_paths:
+        print("No paths found for any algorithm.")
+        return
+
+    # Find overall bounds for zoom
+    all_latlons = []
+    for p in all_paths:
+        latlons = [grid_to_latlon(y, x, bounds, resolution) for y, x in p]
+        all_latlons.extend(latlons)
+    latitudes = [ll[0] for ll in all_latlons]
+    longitudes = [ll[1] for ll in all_latlons]
+
+    center_lat = np.mean(latitudes)
+    center_lon = np.mean(longitudes)
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=15, tiles='OpenStreetMap')
+
+    # Add each path with color and popup
+    for j, (name, (path, _, _)) in enumerate(results.items()):
+        if path:
+            color = colors[j % len(colors)]
+            latlons = [grid_to_latlon(y, x, bounds, resolution) for y, x in path]
+            folium.PolyLine(
+                locations=latlons,
+                color=color,
+                weight=4,
+                opacity=0.7,
+                popup=f'{name} Route'
+            ).add_to(m)
+
+    # Add start and goal markers
+    start_ll = grid_to_latlon(start_idx[0], start_idx[1], bounds, resolution)
+    goal_ll = grid_to_latlon(goal_idx[0], goal_idx[1], bounds, resolution)
+    folium.Marker(start_ll, popup=f'Start: {start_input}', icon=folium.Icon(color='green')).add_to(m)
+    folium.Marker(goal_ll, popup=f'Goal: {goal_input}', icon=folium.Icon(color='blue')).add_to(m)
+
+    # Fit to all paths
+    south, west = min(latitudes) - 0.003, min(longitudes) - 0.003
+    north, east = max(latitudes) + 0.003, max(longitudes) + 0.003
+    m.fit_bounds([[south, west], [north, east]])
+
+    # Add legend
+    legend_html = '''
+    <div style="position: fixed; bottom: 50px; left: 50px; width: 200px; height: 150px; 
+                background-color: white; border:2px solid grey; z-index:9999; font-size:14px; padding: 10px">
+    <b>Algorithm Paths</b><br>
+    <i class="fa fa-circle" style="color:red"></i> A*<br>
+    <i class="fa fa-circle" style="color:blue"></i> GBFS<br>
+    <i class="fa fa-circle" style="color:green"></i> Bi-A*<br>
+    <i class="fa fa-circle" style="color:orange"></i> Weighted A*<br>
+    <i class="fa fa-circle" style="color:purple"></i> Dijkstra
+    </div>
+    '''
+    m.get_root().html.add_child(folium.Element(legend_html))
+
+    output_file = 'all_algorithms_map.html'
+    m.save(output_file)
+    print(f"   Saved combined map to '{output_file}' – zoom/pan to compare paths!")
 
 
 # ============================
@@ -228,7 +301,7 @@ if __name__ == "__main__":
             south -= margin
             east += margin
             west -= margin
-            G = ox.graph_from_bbox((west, south, east, north), network_type="drive")
+            G = ox.graph_from_bbox((west, south, east, north), network_type="walk")
             ox.save_graphml(G, graph_path)
             print("✅ Graph saved.")
         except (GeocoderTimedOut, GeocoderServiceError) as e:
@@ -237,7 +310,7 @@ if __name__ == "__main__":
             south = 33.5338118 - 0.02
             east = 73.2251511 + 0.02
             west = 72.9051511 - 0.02
-            G = ox.graph_from_bbox((west, south, east, north), network_type="drive")
+            G = ox.graph_from_bbox((west, south, east, north), network_type="walk")
             ox.save_graphml(G, graph_path)
     else:
         print("📂 Loading cached graph...")
@@ -306,22 +379,8 @@ if __name__ == "__main__":
     env.start = start_idx
     env.goals = [goal_idx]
 
-    # Algorithms (using Euclidean from heuristics)
-    algorithms = [
-        ("Bi-A*", manhattan)
-    ]
-
-    for alg_name, heuristic in algorithms:
-        print(f"\n🚀 Running {alg_name} Search...")
-        path, cost, expanded = run_algorithm(start_idx, goal_idx, grid, alg_name, heuristic)
-
-        if path:
-            print(f"✅ {alg_name} Path found! Length = {len(path) - 1}, Cost ≈ {cost:.2f}, Nodes expanded = {expanded}")
-            # Use cropped display
-            env.display_path_cropped(path, alg_name, margin=15)
-            display_interactive_map(G, path, bounds, resolution, f"{alg_name} Path", start_input, goal_input)
-        else:
-            print(f"❌ {alg_name}: No path found.")
+    # Run all algorithms and display on single map (no terminal path prints)
+    run_all_algorithms_and_map(start_idx, goal_idx, grid, env, G, bounds, resolution, start_input, goal_input)
 
     print("\n=== Demo Complete ===")
     print("Note: If no path, delete 'islamabad_grid.npz' to regenerate with finer grid.")

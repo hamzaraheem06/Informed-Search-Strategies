@@ -20,7 +20,7 @@ def a_star(start, goal, grid, heuristic):
 
     # 8-connected grid → allows diagonal movement
     directions = [
-        (-1, 0), (1, 0), (0, -1), (0, 1),      # up, down, left, right
+        (-1, 0), (1, 0), (0, -1), (0, 1),  # up, down, left, right
     ]
 
     def in_bounds(y, x):
@@ -68,6 +68,7 @@ def a_star(start, goal, grid, heuristic):
                 heapq.heappush(open_set, (f_score, neighbor))
 
     return None, float('inf'), nodes_expanded  # no path found
+
 
 def weighted_a_star(start, goal, grid, heuristic, alpha=1.0):
     """
@@ -126,6 +127,7 @@ def weighted_a_star(start, goal, grid, heuristic, alpha=1.0):
                 heapq.heappush(open_set, (f_score, neighbor))
 
     return None, float('inf'), nodes_expanded
+
 
 def bidirectional_a_star(start, goal, grid, heuristic):
     """
@@ -230,6 +232,7 @@ def bidirectional_a_star(start, goal, grid, heuristic):
     total_cost = g_fwd[meeting_node] + g_bwd[meeting_node]
     return full_path, total_cost, nodes_expanded
 
+
 def greedy_best_first_search(start, goal, grid, heuristic):
     """
     Greedy Best-First Search (GBFS)
@@ -238,9 +241,9 @@ def greedy_best_first_search(start, goal, grid, heuristic):
         path, nodes_expanded, frontier_history
     """
     height, width = len(grid), len(grid[0])
-    directions = [(-1,0), (1,0), (0,-1), (0,1)]
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
-    def in_bounds(y,x):
+    def in_bounds(y, x):
         return 0 <= y < height and 0 <= x < width
 
     open_set = []
@@ -335,3 +338,58 @@ def reconstruct_path(came_from, start, goal):
         path.append(came_from[path[-1]])
     path.reverse()
     return path
+
+
+def dijkstra(start, goal, grid, heuristic):
+    """
+    Dijkstra's Algorithm
+    --------------------
+    Uniform cost search (heuristic is ignored, uses g_score only).
+
+    Returns:
+        path, total_cost, nodes_expanded
+    """
+    height, width = len(grid), len(grid[0])
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # 4-connected
+
+    def in_bounds(y, x):
+        return 0 <= y < height and 0 <= x < width
+
+    def cost(a, b):
+        return 1  # Uniform cost for grid cells
+
+    open_set = []
+    heapq.heappush(open_set, (0, start))  # (g, node)
+    came_from = {}
+    g_score = {start: 0}
+    nodes_expanded = 0
+
+    while open_set:
+        _, current = heapq.heappop(open_set)
+        nodes_expanded += 1
+
+        if current == goal:
+            # Reconstruct path
+            path = [current]
+            while current in came_from:
+                current = came_from[current]
+                path.append(current)
+            path.reverse()
+            return path, g_score[goal], nodes_expanded
+
+        cy, cx = current
+        for dy, dx in directions:
+            ny, nx = cy + dy, cx + dx
+            if not in_bounds(ny, nx) or grid[ny][nx] == 1:
+                continue
+
+            neighbor = (ny, nx)
+            tentative_g = g_score[current] + cost(current, neighbor)
+
+            if tentative_g < g_score.get(neighbor, float('inf')):
+                came_from[neighbor] = current
+                g_score[neighbor] = tentative_g
+                # f_score = g + 0 (since heuristic=0 for Dijkstra)
+                heapq.heappush(open_set, (tentative_g, neighbor))
+
+    return None, float('inf'), nodes_expanded

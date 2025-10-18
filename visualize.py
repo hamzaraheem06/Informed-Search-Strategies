@@ -1,8 +1,8 @@
 import time
 import matplotlib.pyplot as plt
 from grid import CityGrid
-from search import greedy_best_first_search, weighted_a_star, bidirectional_a_star
-from heuristics import manhattan, euclidean, non_admissible
+from search import greedy_best_first_search, weighted_a_star, bidirectional_a_star, dijkstra
+from heuristics import manhattan, euclidean, non_admissible, chebyshev, weighted_euclidean, zero_heuristic
 
 def main():
     # Set up the grid environment (same as main.py for consistency)
@@ -17,7 +17,10 @@ def main():
     heuristics = [
         ("Manhattan", manhattan),
         ("Euclidean", euclidean),
-        ("Non-Admissible (1.5x Manhattan)", non_admissible)
+        ("Non-Admissible (1.5x Manhattan)", non_admissible),
+        ("Chebyshev", chebyshev),
+        ("Weighted Euclidean", weighted_euclidean),
+        ("Zero Heuristic", zero_heuristic)
     ]
 
     # Define algorithms and parameters (including multiple weighted A* alphas)
@@ -26,7 +29,8 @@ def main():
         ("WA* (α=1.0)", weighted_a_star, 1.0),
         ("WA* (α=1.5)", weighted_a_star, 1.5),
         ("WA* (α=2.0)", weighted_a_star, 2.0),
-        ("Bi-A*", bidirectional_a_star, None)
+        ("Bi-A*", bidirectional_a_star, None),
+        ("Dijkstra", dijkstra, None)
     ]
 
     # Prepare a structure to store results
@@ -44,6 +48,8 @@ def main():
                 path, cost, nodes = alg_func(start, goal, grid_env.grid, heur_func, alpha=alpha)
             elif alg_name == "Bi-A*":
                 path, cost, nodes = alg_func(start, goal, grid_env.grid, heur_func)
+            elif alg_name == "Dijkstra":
+                path, cost, expanded = alg_func(start, goal, grid_env.grid, heur_func)
             else:
                 path, cost, nodes = None, float('inf'), 0
             end_time = time.perf_counter()
